@@ -1,24 +1,56 @@
-This is free and unencumbered software released into the public domain.
+// =========================
+// server.js (Node.js)
+// =========================
+// Prérequis:
+// 1) Installer Node.js
+// 2) npm init -y
+// 3) npm install express node-fetch
+// 4) node server.js
 
-Anyone is free to copy, modify, publish, use, compile, sell, or
-distribute this software, either in source code form or as a compiled
-binary, for any purpose, commercial or non-commercial, and by any
-means.
+const express = require('express');
+const fetch = require('node-fetch');
+const app = express();
 
-In jurisdictions that recognize copyright laws, the author or authors
-of this software dedicate any and all copyright interest in the
-software to the public domain. We make this dedication for the benefit
-of the public at large and to the detriment of our heirs and
-successors. We intend this dedication to be an overt act of
-relinquishment in perpetuity of all present and future rights to this
-software under copyright law.
+// ⚠️ IMPORTANT: garde le webhook CÔTÉ SERVEUR (ne jamais le mettre dans le HTML)
+const DISCORD_WEBHOOK = 'REMPLACE_ICI_PAR_TON_WEBHOOK';
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-OTHER DEALINGS IN THE SOFTWARE.
+app.use(express.json());
+app.use(express.static('public'));
 
-For more information, please refer to <https://unlicense.org>
+// Enregistre une demande et programme l'envoi dans 20 minutes
+app.post('/schedule', async (req, res) => {
+  const { username } = req.body;
+  if (!username) return res.status(400).json({ ok: false, error: 'Nom manquant' });
+
+  // 20 minutes = 1 200 000 ms
+  setTimeout(async () => {
+    try {
+      await fetch(DISCORD_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: `Nom Discord programmé: **${username}**` })
+      });
+      console.log('Message envoyé:', username);
+    } catch (e) {
+      console.error('Erreur envoi webhook:', e);
+    }
+  }, 20 * 60 * 1000);
+
+  res.json({ ok: true, scheduledInMinutes: 20 });
+});
+
+// ⚠️ Discord ne fournit PAS d’API publique pour vérifier si un nom existe.
+// On peut seulement vérifier le FORMAT (caractères valides).
+app.post('/check-format', (req, res) => {
+  const { username } = req.body;
+  const valid = /^[a-zA-Z0-9._]{2,32}$/.test(username || '');
+  res.json({ valid, note: 'Vérification du format uniquement (pas de confirmation d’existence)' });
+});
+
+app.listen(3000, () => console.log('Serveur lancé sur http://localhost:3000'));
+
+
+// =========================
+// public/index.html
+// =========================
+/* Crée un dossier "public" et mets ce fichier dedans */
